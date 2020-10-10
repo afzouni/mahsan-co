@@ -14,4 +14,4 @@ Run the command:
 ```shell
 ansible-playbook -i hosts change-ip.yaml
 ```
-playbook will use `template/debian-template.j2` template file to generate debian interface config.
+playbook will use `templates/debian-template.j2` template file to generate debian interface config.
