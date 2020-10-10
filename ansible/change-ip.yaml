@@ -1,0 +1,15 @@
+---
+- hosts: target
+  become: true
+ 
+  tasks:
+  - name: Generate and Copy Interface Config (eth0 only)
+    template:
+      src: templates/debian-template.j2
+      dest: /etc/network/interfaces.d/eth0
+      owner: root
+      group: root
+      mode: '0644'
+    when: ansible_os_family == 'Debian'
+
+
