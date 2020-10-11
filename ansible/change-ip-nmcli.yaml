@@ -1,0 +1,27 @@
+---
+- hosts: target
+  become: true
+ 
+  tasks:
+  - name: Install needed network manager libs (Debian)
+    ansible.builtin.package:
+      name:
+        - libnm-dev
+        - network-manager
+      update_cache: true
+
+      state: present
+    when: ansible_os_family == 'Debian'
+
+  - name: Change Ip Address
+    community.general.nmcli:
+      type: ethernet
+      conn_name: "eth0"
+      ip4: "{{ address }}"
+      gw4: '{{ gateway }}'
+      state: present
+  
+  
+  - include_tasks: restart-network.yaml
+
+
