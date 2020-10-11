@@ -1,0 +1,8 @@
+- name: Restart Network
+  service: name=networking state=restarted
+  when: ansible_os_family == 'Debian'
+
+
+- name: Restart Network
+  service: name=network state=restarted
+  when: ansible_os_family == 'Redhat'
