@@ -1,0 +1,329 @@
+\input{preamble}
+
+
+
+
+
+\begin{document}
+
+\pagestyle{empty}
+
+\vspace*{5cm}
+
+\begin{center}
+\noindent\fbox{%
+    \parbox{\textwidth}{%
+		\begin{center}			
+				\vspace{5mm}
+			       \textbf{مستندات}
+				\\
+				\vspace{5mm}
+
+				\textbf{\Large{طراحی پایپلاین \lr{CI/CD}}}
+				\\
+				\vspace{2mm}
+		\end{center}
+    }%
+}
+\end{center}
+
+\vspace*{5cm}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|
+>{\columncolor[HTML]{C0C0C0}}c |c|}
+\hline
+تاریخ تنظیم & ۱۳۹۹/۰۷/۲۰ \\ \hline
+نسخه        & 1.0        \\ \hline
+\end{tabular}
+\end{table}
+
+
+
+\cleardoublepage
+\thispagestyle{empty}
+\begin{center}
+		به نام خدا	
+\end{center}
+\vspace{\fill}
+
+\cleardoublepage
+
+\tableofcontents
+\cleardoublepage
+
+\pagestyle{fancy}
+\rhead{مستندات طراحی پایپلاین \lr{CI/CD}}
+
+
+\newpage
+\section{مقدمه}
+فرآیند 
+\lr{CI/CD}
+یا
+\lr{Continuous Integration}
+و
+\lr{Continuous Delivery}
+با هدف خودکارسازی فرایند چرخه سورس‌کد به محصول پیاده‌سازی می‌شود.
+\lr{Continuous Integration}
+ می‌تواند مراحل مختلفی را
+مانند 
+\lr{Build}
+،
+\lr{Test}
+،
+بررسی کیفیت و ...
+ شامل شود.
+در مورد
+ \lr{Continuous Delivery}
+ می‌توان گفت که پس از مراحل
+\lr{CI}
+یک نسخه پایدار به تیم اجرا تحویل داده می‌شود.
+از طرف دیگر
+\lr{Continuous Deployment}
+ زمانی اطلاق می‌شود که همه مراحل ذکرشده انجام شود و سپس در محیط عملیاتی
+(\lr{Production})
+«مستقر»
+شود.
+
+در این نوشتار سعی شده است
+پایپلاین
+\lr{CI/CD}
+برای
+یک سورس 
+ساده
+\lr{PHP}
+ با استفاده از 
+\lr{Docker}
+و
+\lr{Gitlab CI/CD}
+انجام شود.
+
+طراحی با این پیش‌فرض انجام‌ شده است که 
+کانفیگ‌های
+سرور
+\lr{Build}
+و
+\lr{Gitlab Runner}
+وجود دارد.
+
+\section{سورس‌کد}
+ابتدایی‌ترین نیاز برای طراحی پایپلاین، استفاده از کنترل ورژن است. در این مستند از ورژن کنترل
+\lr{git}
+و
+زیرساخت 
+\lr{Gitlab}
+استفاده می‌شود.
+
+
+
+\section{داکرایز}
+برای 
+\lr{Dockerize}
+کردن پروژه،
+\texttt{Dockerfile}
+بشرح زیر تعریف می‌شود:
+
+\begin{latin}
+\begin{lstlisting}[language=Bash]
+FROM php:7.4-apache 
+COPY . /var/www/html
+VOLUME [ "/var/www/html/config" ]
+VOLUME [ "/var/www/html/uploads" ]
+RUN chown -R www-data:www-data /var/www/html
+\end{lstlisting}
+\end{latin}
+
+
+\section{کانفیگ \lr{Gitlab CI/CD}}
+برای کانفیگ
+\lr{Gitlab CI/CD}
+ لازم است فایلی با 
+ عنوان\footnote{امکان تغییر نام در تنظیمات پروژه وجود دارد.}
+ \texttt{.gitlab-ci}
+ در پروژه قرارگیرد.
+همچنین می‌توان کانفیگ‌های مختلفی را به ازای هر برنچ استفاده کرد. 
+
+فایل 
+ \texttt{.gitlab-ci}
+ در فرمت
+ \lr{YAML}
+ تعریف می‌شود.
+ 
+ 
+\begin{latin}
+\begin{lstlisting}
+stages:
+  - test
+  - build
+  - deploy
+test:
+  image: php:7.4
+  stage: test
+  before_script:
+  - curl --location --output /usr/local/bin/phpunit https://phar.phpunit.de/phpunit.phar
+  - chmod +x /usr/local/bin/phpunit
+  script:
+    - phpunit --configuration phpunit.xml
+build:
+  image: docker
+  stage: build
+  before_script:
+    - docker login $CI_REGISTRY -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE .
+    - docker push $CI_REGISTRY_IMAGE
+# Ref: https://docs.gitlab.com/ee/ci/ssh_keys/
+deploy:
+  image: alpine
+  stage: deploy
+  before_script:
+    - apk add --no-cache openssh
+    - echo "$PROD_SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh  
+    - ssh-keyscan $PROD_SSH_ADDRESS >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+    - docker login $CI_REGISTRY -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
+  script:
+    - ssh PROD_SSH_USER@$PROD_SSH_ADDRESS "docker login $CI_REGISTRY -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD"
+    - ssh PROD_SSH_USER@$PROD_SSH_ADDRESS "docker pull $CI_REGISTRY_IMAGE"
+    - ssh PROD_SSH_USER@$PROD_SSH_ADDRESS "docker stop web-app && docker rm web-app"
+    - ssh PROD_SSH_USER@$PROD_SSH_ADDRESS "docker run -d -v /data/web-app/config:/var/www/html/config -v /data/web-app/uploads:/var/www/html/uploads --restart=always -p 8080:80 $CI_REGISTRY_IMAGE --name web-app"
+\end{lstlisting}
+\end{latin}
+
+\newpage
+
+برای پیاده‌سازی از سه مرحله استفاده می‌شود:
+\begin{latin}
+\begin{itemize}
+\item
+Test
+\item
+Build
+\item
+Deploy
+\end{itemize}
+\end{latin}
+
+
+\subsection{ \lr{Continuous Integration}}
+\subsubsection{پیاده‌سازی \lr{Test}}
+برای پیاده‌سازی تست، از ابزار
+\lr{PHPUnit}
+استفاده شده است.
+اجرای
+\lr{PHPUnit}
+در محیط داکر صورت می‌گیرد، بدینصورت که 
+ایمیج 
+\texttt{php:7.4}
+گرفته شده و دستورات زیر برای دانلود 
+\lr{phpunit}
+استفاده می‌شود:
+\begin{latin}
+\begin{lstlisting}[language=Bash]
+curl --location --output /usr/local/bin/phpunit https://phar.phpunit.de/phpunit.phar
+chmod +x /usr/local/bin/phpunit
+\end{lstlisting}
+\end{latin}
+
+سپس تست‌ها انجام می‌شود:
+\begin{latin}
+\begin{lstlisting}[language=Bash]
+phpunit --configuration phpunit.xml
+\end{lstlisting}
+\end{latin}
+
+امکان بررسی کیفیت کد 
+(\lr{Code Quality})
+نیز با ابزارهایی مانند
+\lr{SonarCube}
+امکان‌پذیر است.
+
+\subsection{ \lr{Continuous Delivery}}
+\subsubsection{پیاده‌سازی \lr{Build}}
+در صورت موفقیت‌آمیز بودن مرحله قبل، در اینجا باید
+عملیات
+\lr{Build}
+ایمیج انجام شود.
+در ابتدا 
+شل در رجیستری که مدنظر است لاگین می‌کند. درحال حاضر امکان استفاده از رجیستری گیت‌لب (اصلی) و یا پیاده‌سازی رجیستری در گیت‌لب لوکال نیز امکان‌پذیر است.
+آدرس رجیستری در متغیر محیطی\LTRfootnote{\lr{Environment Variable}}
+\texttt{\$CI\_REGISTRY}
+ثبت شده است.
+احرازهویت بصورت خودکار و با پارامترهای
+\texttt{\$CI\_ـREGISTRY\_USER}
+و
+\texttt{\$CI\_REGISTRY\_PASSWORD}
+انجام می‌شود.
+
+پس از لاگین، ایمیج
+با استفاده از 
+\texttt{Dockerfile}
+بیلد شده و در مرحله بعد داخل رجیستری 
+\lr{Push}
+می‌شود.
+
+\subsection{ \lr{Continuous Deployment}}
+\subsubsection{پیاده‌سازی \lr{Deploy}}
+این مرحله با استفاده از 
+\lr{SSH}
+انجام می‌شود لذا ضروری است پارامترهای
+زیر در کانفیگ پروژه اضافه شوند:
+
+\begin{itemize}
+\item[-]
+آدرس سرور پروداکشن:
+\texttt{PROD\_SSH\_ADDRESS}
+\item[-]
+یوزرنیم:
+\texttt{PROD\_SSH\_USER}
+\item[-]
+کلیدخصوصی برای اتصال سرور پروداکشن:
+\texttt{PROD\_SSH\_PRIVATE\_KEY}
+\end{itemize}
+
+برای این مرحله از ایمیج
+\lr{Alpine}
+استفاده می‌شود، البته بسته به کانفیگ 
+\lr{runner}
+می‌توان
+بدون ایمیج هم فرآیند را انجام داد، اما بدلیل تاثیرات جانبی توصیه نمی‌شود.
+
+زمانی که این مرحله شروع بکار می‌کند، پکیج
+\texttt{openssh}
+نصب شده و کلید خصوصی اتصال به پروداکشن کپی و کلید عمومی سرور
+با استفاده از 
+\texttt{ssh-keyscan}
+ ذخیره می‌شود.
+ 
+برای مراحل بعدی، هربار یک کانکشن
+\lr{SSH}
+به سرور پروداکشن زده  و دستورات زیر اجرا می‌شود:
+\begin{itemize}
+\item[-]
+احراز هویت در رجیستری
+\item[-]
+دریافت ایمیج جدید
+\item[-]
+متوقف‌سازی و حذف کانتینر قبلی
+\item[-]
+شروع کانتینر با ایمیج جدید
+\end{itemize}
+
+لازم به ذکر برای سادگی می‌توان از 
+\lr{docker-compose}
+استفاده کرد. همچنین درصورت استفاده از کلاستر کوبرنتیر مراحل دپلوی ساده‌تر خواهدشد.
+
+
+
+
+
+
+
+
+
+
+\end{document}

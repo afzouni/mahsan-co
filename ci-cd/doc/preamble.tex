@@ -1,0 +1,77 @@
+\documentclass[12pt, oneside]{article}
+
+
+\usepackage{listings}
+\usepackage{fancybox,geometry,array,graphicx,fancyhdr,color,xspace,amsmath,
+amssymb,amsfonts,subfigure,algorithm,algorithmic,hyperref,listofsymbols,tabularx,float}
+\usepackage{lastpage}
+\usepackage[table,xcdraw]{xcolor}
+
+\usepackage{color}
+
+\usepackage{xepersian}
+
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+
+\lstset{frame=tb,
+  language=C++,
+  aboveskip=3mm,
+  belowskip=3mm,
+  showstringspaces=false,
+  columns=flexible,
+  basicstyle={\small\ttfamily},
+  numbers=none,
+  numberstyle=\tiny\color{gray},
+  keywordstyle=\color{blue},
+  commentstyle=\color{dkgreen},
+  stringstyle=\color{mauve},
+  breaklines=true,
+  breakatwhitespace=true,
+  tabsize=3
+}
+
+
+\hypersetup{colorlinks=true,linkcolor=blue,citecolor=blue,filecolor=magneta,urlcolor=cyan}
+
+\geometry{a4paper, tmargin=3cm, bmargin=2.5cm, lmargin=2.5cm, rmargin=2.5cm, footskip=1.5cm}
+\renewcommand{\baselinestretch}{1.9} 
+
+
+\settextfont{B Nazanin} 
+\setlatintextfont[Scale=0.9]{Times New Roman} 
+\setdigitfont{B Nazanin}
+
+\newsavebox\mybox
+\newenvironment{myfbox}{%
+\begin{lrbox}{\mybox}%
+\begin{minipage}{\dimexpr(\textwidth-2\fboxsep-2\fboxrule)}
+\begin{flushleft}%
+\begin{latin}%
+\begin{quote}%
+}{%
+\end{quote}%
+\end{latin}%
+\end{flushleft}%
+\end{minipage}%
+\end{lrbox}%
+\vskip10pt
+\noindent
+\fbox{\usebox\mybox}%
+\vskip10pt
+}
+\newenvironment{myshadowbox}{%
+\begin{lrbox}{\mybox}%
+\begin{minipage}{\dimexpr(\textwidth-2\fboxsep-2\fboxrule-\shadowsize)}
+}{%
+\end{minipage}
+\end{lrbox}%
+\vskip10pt
+\noindent
+\shadowbox{\usebox\mybox}%
+\vskip10pt
+}
+
+
+

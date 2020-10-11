@@ -1,0 +1,47 @@
+stages:
+  - test
+  - build
+  - deploy
+
+
+test:
+  image: php:7.4
+  stage: test
+  before_script:
+  - curl --location --output /usr/local/bin/phpunit https://phar.phpunit.de/phpunit.phar
+  - chmod +x /usr/local/bin/phpunit
+
+  script:
+    - phpunit --configuration phpunit.xml
+
+
+build:
+  image: docker
+  stage: build
+  before_script:
+    - docker login $CI_REGISTRY -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE .
+    - docker push $CI_REGISTRY_IMAGE
+
+
+# Ref: https://docs.gitlab.com/ee/ci/ssh_keys/
+deploy:
+  image: alpine
+  stage: deploy
+  before_script:
+    - apk add --no-cache openssh
+    - echo "$PROD_SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh  
+    - ssh-keyscan $PROD_SSH_ADDRESS >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+    - docker login $CI_REGISTRY -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
+
+  script:
+    - ssh PROD_SSH_USER@$PROD_SSH_ADDRESS "docker login $CI_REGISTRY -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD"
+    - ssh PROD_SSH_USER@$PROD_SSH_ADDRESS "docker pull $CI_REGISTRY_IMAGE"
+    - ssh PROD_SSH_USER@$PROD_SSH_ADDRESS "docker stop web-app && docker rm web-app"
+    - ssh PROD_SSH_USER@$PROD_SSH_ADDRESS "docker run -d -v /data/web-app/config:/var/www/html/config -v /data/web-app/uploads:/var/www/html/uploads --restart=always -p 8080:80 $CI_REGISTRY_IMAGE --name web-app"
+
+
